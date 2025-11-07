@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name="aloegraph"
-version="0.0.2"
+version={{VERSION}}
 description="AloeGraph is a lightweight, schema-driven workflow engine for managing refinable tasks and agent orchestration."
 
 license = "apache-2.0"

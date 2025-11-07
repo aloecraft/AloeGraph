@@ -2,7 +2,7 @@ ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 __TECHNO_PROJECT_VERSION_FILE:=VERSION
 __TECHNO_PROJECT_BUILD_NUM_FILE:=.build_num
-
+TEMPLATE_DIR=$(ROOT_DIR)/template
 VERSION := $(file < $(__TECHNO_PROJECT_VERSION_FILE))
 BUILD_NUM := $(file < $(__TECHNO_PROJECT_BUILD_NUM_FILE))
 
@@ -13,8 +13,13 @@ echo:
 
 build: _ibn
 
+	@python3 $(TEMPLATE_DIR)/gen.py --config="{\"VERSION\":\"\\\"$(VERSION)\\\"\"}" --template="$(TEMPLATE_DIR)/pyproject.template.toml" --out="pyproject.toml"
 	@python3 -m build
 
+gittag:
+
+	@git tag v$(VERSION)
+	@git push origin v$(VERSION)
 
 # --- Version Number Targets ---
 
