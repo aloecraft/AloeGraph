@@ -1,9 +1,17 @@
-from .model.base_model import AloeChatMessage, AloeChat, AloeEdge
+from aloegraph.model.base_model import AloeChatMessage, AloeChat, AloeEdge
 
 from pydantic import BaseModel, Field
 from typing import Callable, Optional, Union, Literal
 
-class AloeConfig(BaseModel):
+from abc import ABC, abstractmethod
+
+class AloeConfigBase(BaseModel, ABC):
+
+  @abstractmethod
+  def get_available_transitions(self) -> list[str]:
+      pass
+
+class AloeConfig(AloeConfigBase):
   current_node: str
   desired_node: Optional[str] = None
   nodes: dict[str, Callable] = Field(default_factory=dict, exclude=True)
@@ -27,7 +35,7 @@ class AloeConfig(BaseModel):
             available.append(t)
     return available
 
-  def to_string(self, indent="\t") -> str:
+  def __str__(self, indent="\t") -> str:
         return  \
           f"\n{indent}current_node: {self.current_node}" + \
           f"\n{indent}Chat:" + \

@@ -14,5 +14,10 @@ authors = [{email = "michael@aloecraft.org"}]
 maintainers = [{email = "michael@aloecraft.org"}]
 readme = "README.md"
 
+dependencies = [
+    "ipywidgets",
+    "google-genai",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]

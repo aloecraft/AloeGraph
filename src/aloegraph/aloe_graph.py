@@ -1,17 +1,40 @@
-from .aloe_config import AloeConfig
-from .model.base_model import AloeEdge
+from aloegraph.aloe_config import AloeConfig
+from aloegraph.model.base_model import AloeEdge
 
 from typing import Callable, Optional, Union, Optional
 from functools import wraps
+from abc import ABC, abstractmethod
 
 END = "__END__"
 
 def default_decider(state: AloeConfig) -> str:
-  if state.desired_node and state.desired_node in state.get_available_transitions():
-    return state.desired_node
-  return END
+    if state.desired_node and state.desired_node in state.get_available_transitions():
+        return state.desired_node
+    return END
 
-class AloeGraph:
+class AloeGraphBase(ABC):
+
+    @abstractmethod
+    def __init__(self, initial_state: AloeConfig, agent_name: str, agent_description: str):
+        pass
+
+    @abstractmethod
+    def invoke(self, state: AloeConfig, recursion_limit: int = 10) -> AloeConfig:
+        pass
+
+    @abstractmethod
+    def AloeNode(
+        self,
+        targets: list[Union[str, Callable]],
+        description: Optional[str] = "",
+        recommended_next: Union[str, Callable] = None,
+        confirm_request: Optional[str] = None,
+        branch_decider: Optional[Callable[[AloeConfig], str]] = default_decider,
+        transition_checks: Optional[list[Callable[[AloeConfig], bool]]] = None,
+    ):
+        pass
+
+class AloeGraph(AloeGraphBase):
 
   def __init__(self, initial_state: AloeConfig, agent_name: str, agent_description: str):
     self.state = initial_state
@@ -67,6 +90,7 @@ class AloeGraph:
       return decorator
 
   def invoke(self, state: AloeConfig, recursion_limit: int = 10) -> AloeConfig:
+        
         steps = 0
         while steps < recursion_limit:
             steps += 1
