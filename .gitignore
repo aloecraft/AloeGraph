@@ -1,0 +1,6 @@
+dist
+.dump
+.scratch
+.vscode
+**/*/__pycache__
+**/*.egg-info
