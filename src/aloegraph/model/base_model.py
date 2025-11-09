@@ -25,6 +25,8 @@ class AloeEdge(BaseModel):
     recommended_next: Optional[str] = None
     confirm_request: Optional[str] = None
     branch_decider: Callable[[object], str] = Field(exclude=True)
+    completion_check: Optional[Callable[[], tuple[bool, object, Optional[str]]]] = Field(default=None, exclude=True)
+    completion_check_retries: Optional[int]=5,
     transition_checks: list[Callable[[object], bool]] = Field(default_factory=list, exclude=True)
 
     def to_string(self, indent="\t") -> str:

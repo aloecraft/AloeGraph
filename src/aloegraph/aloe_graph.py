@@ -6,11 +6,16 @@ from functools import wraps
 from abc import ABC, abstractmethod
 
 END = "__END__"
+INTERRUPT = "__INTERRUPT__"
+CONTINUE = "__CONTINUE__"
 
 def default_decider(state: AloeConfig) -> str:
     if state.desired_node and state.desired_node in state.get_available_transitions():
         return state.desired_node
     return END
+
+def default_completion_check(state: AloeConfig) -> tuple[bool, AloeConfig, Optional[str]]:
+    return (True, state, None)
 
 class AloeGraphBase(ABC):
 
@@ -30,6 +35,8 @@ class AloeGraphBase(ABC):
         recommended_next: Union[str, Callable] = None,
         confirm_request: Optional[str] = None,
         branch_decider: Optional[Callable[[AloeConfig], str]] = default_decider,
+        completion_check: Optional[Callable[[], tuple[bool, AloeConfig, Optional[str]]]] = default_completion_check,
+        completion_check_retries: Optional[int]=5,
         transition_checks: Optional[list[Callable[[AloeConfig], bool]]] = None,
     ):
         pass
@@ -43,13 +50,15 @@ class AloeGraph(AloeGraphBase):
     self.workflow = None
 
   def AloeNode(
-      self,
-      targets: list[Union[str, Callable]],
-      description: Optional[str] = "",
-      recommended_next: Union[str, Callable] = None,
-      confirm_request: Optional[str] = None,
-      branch_decider: Optional[Callable[[AloeConfig], str]] = default_decider,
-      transition_checks: Optional[list[Callable[[AloeConfig], bool]]] = None,
+    self,
+    targets: list[Union[str, Callable]],
+    description: Optional[str] = "",
+    recommended_next: Union[str, Callable] = None,
+    confirm_request: Optional[str] = None,
+    branch_decider: Optional[Callable[[AloeConfig], str]] = default_decider,
+    completion_check: Optional[Callable[[], tuple[bool, AloeConfig, Optional[str]]]] = default_completion_check,
+    completion_check_retries: Optional[int]=5,
+    transition_checks: Optional[list[Callable[[AloeConfig], bool]]] = None,
   ):
       
       rec_name = None
@@ -59,33 +68,35 @@ class AloeGraph(AloeGraphBase):
       desc = description
 
       def decorator(f: Callable) -> Callable:
-          source_name = f.__name__
-          target_names = [t if isinstance(t, str) else t.__name__ for t in targets]
+            source_name = f.__name__
+            target_names = [t if isinstance(t, str) else t.__name__ for t in targets]
 
-          edge = AloeEdge(
-              source=source_name,
-              targets=target_names,
-              description=desc,
-              recommended_next=rec_name,
-              confirm_request=confirm_request,
-              branch_decider=branch_decider,  # see router below
-              transition_checks=transition_checks or [],
-          )
+            edge = AloeEdge(
+                source=source_name,
+                targets=target_names,
+                description=desc,
+                recommended_next=rec_name,
+                confirm_request=confirm_request,
+                branch_decider=branch_decider,
+                completion_check=completion_check,
+                completion_check_retries=completion_check_retries,
+                transition_checks=transition_checks or [],
+            )
 
-          @wraps(f)
-          def wrapper(state: AloeConfig, *args, **kwargs):
-              state.current_node = source_name
+            @wraps(f)
+            def wrapper(state: AloeConfig, *args, **kwargs):
+                state.current_node = source_name
 
-              if source_name == state.desired_node:
-                  state.desired_node = ""
+                if source_name == state.desired_node:
+                    state.desired_node = ""
 
-              state.DEBUG_node_visits.append(source_name)
-              return f(state, *args, **kwargs)
+                state.DEBUG_node_visits.append(source_name)
+                return f(state, *args, **kwargs)
 
-          # Register
-          self.state.edges[source_name] = edge
-          self.state.nodes[source_name] = wrapper
-          return wrapper
+            # Register
+            self.state.edges[source_name] = edge
+            self.state.nodes[source_name] = wrapper
+            return wrapper
 
       return decorator
 
@@ -105,8 +116,28 @@ class AloeGraph(AloeGraphBase):
             node_fn = state.nodes[current]
             state = node_fn(state)
 
-            # Decide where to go next
+            # Completion check with retry logic
             edge = state.edges[current]
+            if edge.completion_check:
+                retries = edge.completion_check_retries or 1
+                for attempt in range(retries):
+                    success, state, message = edge.completion_check(state)
+                    if success:
+                        state.retry_message = ""
+                        break
+                    else:
+                        state.retry_message = message
+                        # Optionally log or store the guiding message
+                        state.DEBUG_messages.append(
+                            f"Completion check failed at {current}, attempt {attempt+1}: {message}"
+                        )
+                        # Re-run the node function to give the model another chance
+                        state = node_fn(state)
+                else:
+                    # If we exhausted retries without success
+                    raise RuntimeError(
+                        f"Completion check failed for node {current} after {retries} retries"
+                    )
 
             next_node = None
             if edge.branch_decider:

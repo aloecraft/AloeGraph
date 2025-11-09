@@ -19,6 +19,7 @@ class AloeConfig(AloeConfigBase):
   chat: AloeChat = Field(default_factory=lambda: AloeChat(messages=[]))
   agent_message: Optional[str] = ""
   error_message: Optional[str] = ""
+  retry_message: Optional[str] = ""
 
   def get_available_transitions(self) -> list[str]:
     current = self.current_node
