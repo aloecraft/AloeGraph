@@ -1,3 +1,10 @@
+"""
+- **Module:** `src/aloegraph/aloe_graph.py`
+- **GitHub:** <https://github.com/aloecraft/AloeGraph>
+- **Author:** AloeCraft.org (Michael Godfrey)
+"""
+
+from aloegraph.V2.v2_base_model import END
 from aloegraph.aloe_config import AloeConfig
 from aloegraph.model.base_model import AloeEdge
 
@@ -5,9 +12,8 @@ from typing import Callable, Optional, Union, Optional
 from functools import wraps
 from abc import ABC, abstractmethod
 
-END = "__END__"
+RESUME = "__RESUME__"
 INTERRUPT = "__INTERRUPT__"
-CONTINUE = "__CONTINUE__"
 
 def default_decider(state: AloeConfig) -> str:
     if state.desired_node and state.desired_node in state.get_available_transitions():
@@ -48,6 +54,10 @@ class AloeGraph(AloeGraphBase):
     self.agent_name = agent_name
     self.agent_description = agent_description
     self.workflow = None
+    self.log_notifier = None
+
+  def set_log_notifier(self, log_notifier):
+      self.log_notifier = log_notifier
 
   def AloeNode(
     self,
@@ -89,7 +99,6 @@ class AloeGraph(AloeGraphBase):
 
                 if source_name == state.desired_node:
                     state.desired_node = ""
-
                 state.DEBUG_node_visits.append(source_name)
                 return f(state, *args, **kwargs)
 
@@ -113,12 +122,17 @@ class AloeGraph(AloeGraphBase):
             current = state.current_node
 
             # Run the node
+            self.log_notifier.notify_log(f"[ALOEGRAPH]: Running Node: ({current})")
             node_fn = state.nodes[current]
+            self.log_notifier.notify_log(f"[ALOEGRAPH]:      node_fn: ({node_fn})")
             state = node_fn(state)
 
             # Completion check with retry logic
             edge = state.edges[current]
             if edge.completion_check:
+                self.log_notifier.notify_log(f"[ALOEGRAPH]: Initial completion_check failed ({current})")
+                self.log_notifier.notify_log(f"[ALOEGRAPH]:                                 ({state.agent_message})")
+                self.log_notifier.notify_log(f"[ALOEGRAPH]:                                 ({state.error_message})")
                 retries = edge.completion_check_retries or 1
                 for attempt in range(retries):
                     success, state, message = edge.completion_check(state)
@@ -128,9 +142,8 @@ class AloeGraph(AloeGraphBase):
                     else:
                         state.retry_message = message
                         # Optionally log or store the guiding message
-                        state.DEBUG_messages.append(
-                            f"Completion check failed at {current}, attempt {attempt+1}: {message}"
-                        )
+                        if self.log_notifier:
+                            self.log_notifier.notify_log(f"[ALOEGRAPH]: Completion check failed at {current}, attempt {attempt+1}: {message}")
                         # Re-run the node function to give the model another chance
                         state = node_fn(state)
                 else:

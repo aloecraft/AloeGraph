@@ -10,7 +10,7 @@ version={{VERSION}}
 description="AloeGraph is a lightweight, schema-driven workflow engine for managing refinable tasks and agent orchestration."
 
 license = "apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 
 authors = [{email = "michael@aloecraft.org"}]
 maintainers = [{email = "michael@aloecraft.org"}]
