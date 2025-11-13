@@ -1,6 +1,7 @@
 site_name: AloeGraph API Documentation
 site_description: "Schema-driven workflow engine for managing refinable tasks and agent orchestration"
 site_author: "AloeCraft.org (Michael Godfrey)"
+site_url: https://aloecraft.github.io/AloeGraph/
 
 theme:
   name: material
